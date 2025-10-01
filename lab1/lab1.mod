@@ -1,0 +1,2 @@
+/home/phuc/BBB/LINUX_CORSE/lab1/lab1.o
+

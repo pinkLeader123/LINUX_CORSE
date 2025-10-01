@@ -1,0 +1,1 @@
+cmd_/home/phuc/BBB/LINUX_CORSE/lab1/lab1.ko := arm-linux-gnueabihf-ld -r -EL -z noexecstack --build-id  -T ./scripts/module-common.lds -T ./arch/arm/kernel/module.lds -o /home/phuc/BBB/LINUX_CORSE/lab1/lab1.ko /home/phuc/BBB/LINUX_CORSE/lab1/lab1.o /home/phuc/BBB/LINUX_CORSE/lab1/lab1.mod.o;  true
