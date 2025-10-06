@@ -1,0 +1,2 @@
+/home/phuc/BBB/LINUX_CORSE/misc_driver/led.o
+

@@ -1,0 +1,1 @@
+cmd_/home/phuc/BBB/LINUX_CORSE/misc_driver/led.ko := arm-linux-gnueabihf-ld -r -EL -z noexecstack --build-id  -T ./scripts/module-common.lds -T ./arch/arm/kernel/module.lds -o /home/phuc/BBB/LINUX_CORSE/misc_driver/led.ko /home/phuc/BBB/LINUX_CORSE/misc_driver/led.o /home/phuc/BBB/LINUX_CORSE/misc_driver/led.mod.o;  true
