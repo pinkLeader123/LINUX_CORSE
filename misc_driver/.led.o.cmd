@@ -701,6 +701,30 @@ deps_/home/phuc/BBB/LINUX_CORSE/misc_driver/led.o := \
     $(wildcard include/config/arm/dma/use/iommu.h) \
     $(wildcard include/config/arch/omap.h) \
   include/linux/pm_wakeup.h \
+  include/linux/interrupt.h \
+    $(wildcard include/config/irq/forced/threading.h) \
+    $(wildcard include/config/generic/irq/probe.h) \
+    $(wildcard include/config/proc/fs.h) \
+    $(wildcard include/config/irq/timings.h) \
+  include/linux/irqreturn.h \
+  include/linux/irqnr.h \
+  include/uapi/linux/irqnr.h \
+  include/linux/hardirq.h \
+  include/linux/ftrace_irq.h \
+    $(wildcard include/config/ftrace/nmi/enter.h) \
+    $(wildcard include/config/hwlat/tracer.h) \
+  include/linux/vtime.h \
+    $(wildcard include/config/virt/cpu/accounting.h) \
+    $(wildcard include/config/irq/time/accounting.h) \
+  include/linux/context_tracking_state.h \
+    $(wildcard include/config/context/tracking.h) \
+  include/linux/static_key.h \
+  arch/arm/include/asm/hardirq.h \
+  arch/arm/include/asm/irq.h \
+    $(wildcard include/config/sparse/irq.h) \
+  include/linux/irq_cpustat.h \
+  arch/arm/include/asm/sections.h \
+  include/asm-generic/sections.h \
   include/linux/module.h \
     $(wildcard include/config/modules/tree/lookup.h) \
     $(wildcard include/config/module/sig.h) \
@@ -730,7 +754,6 @@ deps_/home/phuc/BBB/LINUX_CORSE/misc_driver/led.o := \
   include/linux/error-injection.h \
   include/asm-generic/error-injection.h \
   include/linux/tracepoint-defs.h \
-  include/linux/static_key.h \
   arch/arm/include/asm/module.h \
     $(wildcard include/config/arm/unwind.h) \
     $(wildcard include/config/arm/module/plts.h) \
@@ -797,9 +820,6 @@ deps_/home/phuc/BBB/LINUX_CORSE/misc_driver/led.o := \
     $(wildcard include/config/generic/irq/legacy.h) \
     $(wildcard include/config/generic/irq/multi/handler.h) \
   include/linux/irqhandler.h \
-  include/linux/irqreturn.h \
-  include/linux/irqnr.h \
-  include/uapi/linux/irqnr.h \
   include/linux/slab.h \
     $(wildcard include/config/debug/slab.h) \
     $(wildcard include/config/failslab.h) \
@@ -810,13 +830,10 @@ deps_/home/phuc/BBB/LINUX_CORSE/misc_driver/led.o := \
   include/linux/percpu-refcount.h \
   include/linux/kasan.h \
     $(wildcard include/config/kasan/generic.h) \
-  arch/arm/include/asm/irq.h \
-    $(wildcard include/config/sparse/irq.h) \
   arch/arm/include/generated/asm/irq_regs.h \
   include/asm-generic/irq_regs.h \
   include/linux/irqdesc.h \
     $(wildcard include/config/irq/preflow/fasteoi.h) \
-    $(wildcard include/config/proc/fs.h) \
     $(wildcard include/config/generic/irq/debugfs.h) \
     $(wildcard include/config/handle/domain/irq.h) \
     $(wildcard include/config/irq/domain.h) \
