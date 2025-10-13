@@ -1,0 +1,37 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,am335x-bone-black", "ti,am33xx";
+
+    /* -------------------------------------------------------------
+     * Fragment 1: Pinmux cho P8_08 (GPIO2_3)
+     * ------------------------------------------------------------- */
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+
+        __overlay__ {
+            p8_08_led_pin: pinmux_p8_08_led {
+                pinctrl-single,pins = <
+                    0x94 0x07 /* CONF_GPMC_AD6, MODE7 (GPIO output) */
+                >;
+            };
+        };
+    };
+
+    /* -------------------------------------------------------------
+     * Fragment 2: Định nghĩa LED
+     * ------------------------------------------------------------- */
+    fragment@1 {
+        target = <&ocp>;
+        __overlay__ {
+            leds_p8_08 {
+                compatible = "myvendor,p8-08-blink";
+                pinctrl-names = "default";
+                pinctrl-0 = <&p8_08_led_pin>;
+                gpios = <&gpio2 3 0>;  // Di chuyển lên đây
+                default-state = "off";
+            };
+        };
+    };
+};
