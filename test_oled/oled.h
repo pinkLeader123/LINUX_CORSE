@@ -12,6 +12,44 @@
 #define OLED_HEIGHT 64
 #define OLED_PAGES (OLED_HEIGHT / 8)
 
+#define ACK 0
+#define NACK 1
+
+int DS1307_tx(struct i2c_client *client, u8 reg, u8 *data, int data_len);
+int DS1307_rx(struct i2c_client *client, u8 reg, u8 *str, int data_len);
+u8 DS1307_converter(u8 date);
+int DS1307_reverter(u8 time);
+int DS1307_update_sec(struct i2c_client *client, u8 sec);
+int DS1307_update_min(struct i2c_client *client, u8 min);
+int DS1307_update_hrs(struct i2c_client *client, u8 hrs);
+int DS1307_update_time(struct i2c_client *client, u8 hrs, u8 min, u8 sec);
+int DS1307_get_time(struct i2c_client *client, u8 *str);
+
+int oled_write_cmd(struct i2c_client *client, u8 cmd);
+
+// Hàm gửi lệnh 2 byte (thực ra là 3 byte I2C: Control_byte, Cmd1, Cmd2)
+int oled_write_2byte_cmd(struct i2c_client *client, u8 *cmd);
+
+// Hàm gửi dữ liệu 1 byte
+int oled_write_data(struct i2c_client *client, u8 data);
+
+
+// --- API Điều khiển OLED cấp cao ---
+
+// Khởi tạo phần cứng OLED (thực hiện sequence lệnh)
+int oled_hw_init(struct i2c_client *client);
+
+// Xóa toàn bộ màn hình (blank)
+void oled_blank(struct i2c_client *client);
+
+// Xóa nội dung của một trang cụ thể
+void oled_clear_page(struct i2c_client *client, u8 page);
+
+// In chuỗi ký tự ra màn hình (không có thiết lập vị trí)
+void oled_print(struct i2c_client *client, u8 *str);
+
+// Hiển thị chuỗi tại vị trí (Trang Ypos, Cột Xpos)
+void oled_msg(struct i2c_client *client, u8 Ypos, u8 Xpos, u8 *str);
 
 
 static const u8 ASCII[][5] =
