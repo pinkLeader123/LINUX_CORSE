@@ -7,11 +7,18 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
+#include <linux/uaccess.h>
+#include <linux/ioctl.h>
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/time.h>
 
 // Tên driver này PHẢI KHỚP với tên trong id_table
 #define DRIVER_NAME "combined-i2c-driver"
 #define OLED_COMPATIBLE "solomon,ssd1306"
 #define DS1307_COMPATIBLE "dallas,ds1307"
+#define MISC_DEVICE_NAME "rtc_oled_time"
 
 // Định nghĩa các API của OLED (Giả định nằm trong oled.h)
 #include "oled.h"
@@ -20,6 +27,10 @@
 static struct i2c_client *oled_client_global;
 static struct i2c_client *rtc_client_global;
 static struct task_struct *display_kthread;
+static int time; //gio phut giay -> giay; 
+
+#define LED_IOC_MAGIC 'k'
+#define GET_TIME_CMD _IOR(LED_IOC_MAGIC, 1, int)
 
 int oled_write_cmd(struct i2c_client *client, u8 cmd)
 {
@@ -262,6 +273,12 @@ static void example_usage(struct i2c_client *client)
     dev_info(&client->dev, "Time: %s:%s:%s\n", hrs_str, min_str, sec_str);
 }
 
+
+int time2sec(int h, int m, int s){
+    return h*60*60 + m * 60 + s; 
+}
+
+
 // Kthread function để display time trên OLED
 static int background_task(void *data)
 {
@@ -290,6 +307,8 @@ static int background_task(void *data)
         sec = DS1307_reverter(raw_time[0] & 0x7F); // Mask CH bit
         min = DS1307_reverter(raw_time[1]);
         hrs = DS1307_reverter(raw_time[2]);
+        
+        time = time2sec(hrs,min,sec); 
 
         // Format full time string
         int2str(hrs, hrs_str);
@@ -301,69 +320,123 @@ static int background_task(void *data)
         oled_clear_page(oled_client_global, 4);
         oled_msg(oled_client_global, 4, 0, (u8 *)time_buf);
 
-        msleep(700);
+        msleep(10);
     }
     dev_info(&oled_client_global->dev, "%s: Kthread terminated.\n", DRIVER_NAME);
     return 0;
 }
 
+static long time_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    int ret; 
+    switch (cmd) {
+
+    case GET_TIME_CMD:
+        
+        // Copy số nguyên 4 byte (current_led_status) lên userspace
+        if (copy_to_user((int __user *)arg, &time, sizeof(time))) {
+            return -EFAULT; // Lỗi truy cập bộ nhớ
+        }
+        pr_info("IOCTL: Returning status %d\n", time);
+        ret = 0;
+        break;
+
+
+    default:
+        pr_warn("IOCTL: Unknown command 0x%x\n", cmd);
+        ret = -ENOTTY; // Command không được hỗ trợ
+    }
+    return ret; 
+}
+
+
+// --- KHỐI FILE OPERATIONS VÀ MISC DEVICE ---
+
+static int misc_open(struct inode *node, struct file *filep) { return 0; }
+static int misc_release(struct inode *node, struct file *filep) { return 0; }
+
+static const struct file_operations combined_misc_fops = {
+    .owner = THIS_MODULE,
+    .open = misc_open,
+    .release = misc_release,
+    .unlocked_ioctl = time_ioctl, // <-- ĐĂNG KÝ HÀM IOCTL
+};
+
+static struct miscdevice combined_misc_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = MISC_DEVICE_NAME, 
+    .fops = &combined_misc_fops,
+};
+
 static int combined_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-    int ret;
+    int ret = 0;
     const char str[] = "Dang van phuc";
-
-    // 1. Kiểm tra NULL client (Thao tác chuẩn)
+    
+    // Kiểm tra cấu trúc client
     if (!client) {
-        pr_err("I2C: Client structure is NULL.\n");
+        dev_err(&client->dev, "I2C: Client structure is NULL.\n");
         return -ENODEV;
     }
     dev_info(&client->dev, "I2C: Probe started for %s at address 0x%02x.\n", client->name, client->addr);
 
-    // 2. PHÂN LOẠI THIẾT BỊ DỰA TRÊN DEVICE TREE (DT)
     // --- KHỐI A: Xử lý SSD1306 OLED ---
     if (of_device_is_compatible(client->dev.of_node, OLED_COMPATIBLE)) {
         dev_info(&client->dev, "OLED: Initialization sequence started.\n");
+        
+        // Khởi tạo phần cứng OLED
         ret = oled_hw_init(client);
-        if (ret) {
-            dev_err(&client->dev, "OLED init failed (Error: %d)\n", ret);
-            return ret;
-        }
+        if (ret) return ret; 
+        
         oled_blank(client);
         oled_msg(client, 2, 3, (u8 *)str);
-        oled_client_global = client;
+        oled_client_global = client; // Lưu client toàn cục
+        
         dev_info(&client->dev, "SSD1306: Probe successful. Display initialized.\n");
     }
+    
     // --- KHỐI B: Xử lý DS1307 RTC ---
     else if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE)) {
-        dev_info(&client->dev, "DS1307: Initialization sequence started. Setting time to 10:30:00.\n");
-        ret = DS1307_update_time(client, 10, 30, 0);
+        dev_info(&client->dev, "DS1307: Initialization sequence started. Setting time to 00:00:00.\n");
+        
+        // Khởi tạo và đặt thời gian
+        ret = DS1307_update_time(client, 0, 0, 0); 
         if (ret) {
             dev_err(&client->dev, "DS1307 set time failed (Error: %d)\n", ret);
             return ret;
         }
-        // Thử đọc lại thời gian để xác minh
-        example_usage(client);
-        rtc_client_global = client;
-        dev_info(&client->dev, "DS1307: Probe successful. RTC is ready.\n");
-
-        // Start kthread chỉ khi cả OLED và RTC đã probe
-        if (oled_client_global && rtc_client_global) {
-            display_kthread = kthread_run(background_task, NULL, DRIVER_NAME "_display");
-            if (IS_ERR(display_kthread)) {
-                ret = PTR_ERR(display_kthread);
-                dev_err(&client->dev, "%s: Failed to create kernel thread: %d\n", DRIVER_NAME, ret);
-                return ret;
-            }
-            dev_info(&client->dev, "%s: Display thread started successfully.\n", DRIVER_NAME);
-        } else {
-            dev_warn(&client->dev, "%s: Waiting for OLED to start display thread.\n", DRIVER_NAME);
+        rtc_client_global = client; // Lưu client toàn cục
+        
+        // 1. ĐĂNG KÝ MISC DEVICE (Chỉ khi RTC probe thành công)
+        ret = misc_register(&combined_misc_device);
+        if (ret) {
+            dev_err(&client->dev, "%s: Failed to register misc device: %d\n", DRIVER_NAME, ret);
+            rtc_client_global = NULL; // Cleanup global
+            return ret;
         }
+        dev_info(&client->dev, "%s: Misc device registered at /dev/%s\n", DRIVER_NAME, MISC_DEVICE_NAME);
     }
-    // --- Xử lý Lỗi ---
-    else {
-        dev_warn(&client->dev, "I2C: Unknown device bound to this driver: %s\n", client->name);
-        return -ENODEV;
+
+    // 2. Start kthread (KHÔNG TRONG ELSE-IF KHÁC)
+    // Sau khi xử lý xong client hiện tại, kiểm tra nếu cả hai đã sẵn sàng.
+    if (oled_client_global && rtc_client_global && !display_kthread) {
+        display_kthread = kthread_run(background_task, NULL, DRIVER_NAME "_display");
+        if (IS_ERR(display_kthread)) {
+            ret = PTR_ERR(display_kthread);
+            dev_err(&client->dev, "%s: Failed to create kernel thread: %d\n", DRIVER_NAME, ret);
+            // Cleanup: Đăng ký Misc thất bại, cần hủy đăng ký (Chỉ xảy ra nếu RTC probe sau OLED)
+            if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE)) {
+                misc_deregister(&combined_misc_device);
+                rtc_client_global = NULL; 
+            }
+            return ret;
+        }
+        dev_info(&client->dev, "%s: Display thread started successfully.\n", DRIVER_NAME);
+    } else if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE)) {
+        // Chỉ hiện cảnh báo nếu là DS1307 (vì DS1307 chịu trách nhiệm khởi động thread)
+        dev_warn(&client->dev, "%s: Waiting for OLED to start display thread.\n", DRIVER_NAME);
     }
+    
     return 0;
 }
 
@@ -371,23 +444,29 @@ static int combined_i2c_remove(struct i2c_client *client)
 {
     dev_info(&client->dev, "%s: Remove called for 0x%02x.\n", DRIVER_NAME, client->addr);
 
-    // Dọn dẹp kthread nếu là DS1307
-    if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE) && display_kthread) {
-        kthread_stop(display_kthread);
-        display_kthread = NULL;
-        dev_info(&client->dev, "%s: Kthread stopped.\n", DRIVER_NAME);
+    // Dọn dẹp kthread và Misc Device (Chỉ xảy ra khi client DS1307 bị remove)
+    if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE)) {
+        
+        // 1. Dừng Kthread (Quan trọng: Phải dừng trước khi dọn dẹp các clients)
+        if (display_kthread) {
+            kthread_stop(display_kthread);
+            display_kthread = NULL;
+            dev_info(&client->dev, "%s: Kthread stopped.\n", DRIVER_NAME);
+        }
+        
+        // 2. Dọn dẹp Misc Device
+        misc_deregister(&combined_misc_device);
+        dev_info(&client->dev, "%s: Misc device deregistered.\n", DRIVER_NAME);
+        
+        // 3. Dọn dẹp Global RTC client
+        rtc_client_global = NULL;
     }
 
-    // Dọn dẹp OLED
+    // Dọn dẹp OLED (Khi client OLED bị remove)
     if (of_device_is_compatible(client->dev.of_node, OLED_COMPATIBLE)) {
         oled_blank(client);
         oled_client_global = NULL;
-        dev_info(&client->dev, "OLED: Display blanked.\n");
-    }
-
-    // Clear RTC global
-    if (of_device_is_compatible(client->dev.of_node, DS1307_COMPATIBLE)) {
-        rtc_client_global = NULL;
+        dev_info(&client->dev, "OLED: Display blanked and global client cleared.\n");
     }
 
     dev_info(&client->dev, "%s: Resources released.\n", DRIVER_NAME);

@@ -1,1 +1,0 @@
-cmd_/home/phuc/BBB/LINUX_CORSE/test_oled/Module.symvers := sed 's/\.ko$$/\.o/' /home/phuc/BBB/LINUX_CORSE/test_oled/modules.order | scripts/mod/modpost -m   -o /home/phuc/BBB/LINUX_CORSE/test_oled/Module.symvers -e -i Module.symvers   -T -

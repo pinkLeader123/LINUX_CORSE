@@ -1,1 +1,0 @@
-cmd_/home/phuc/BBB/LINUX_CORSE/test_oled/oled_driver.ko := arm-linux-gnueabihf-ld -r -EL -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/phuc/BBB/LINUX_CORSE/test_oled/oled_driver.ko /home/phuc/BBB/LINUX_CORSE/test_oled/oled_driver.o /home/phuc/BBB/LINUX_CORSE/test_oled/oled_driver.mod.o;  true
